@@ -71,7 +71,12 @@ fn build_globset(patterns: &[String]) -> Result<GlobSet, globset::Error> {
 fn should_prune_dir(entry: &DirEntry, base: &Path, exclude: &GlobSet) -> bool {
     let name = entry.file_name();
 
-    // Skip dot-directories
+    // Don't prune the base directory itself
+    if entry.path() == base {
+        return false;
+    }
+
+    // Skip dot-directories (hidden directories)
     if name.to_string_lossy().starts_with('.') {
         return true;
     }
@@ -85,26 +90,23 @@ fn should_prune_dir(entry: &DirEntry, base: &Path, exclude: &GlobSet) -> bool {
 
     let dot_rel = PathBuf::from(".").join(rel_path);
 
-    exclude.is_match(name)
-        || exclude.is_match(rel_path)
-        || exclude.is_match(&dot_rel)
+    exclude.is_match(name) || exclude.is_match(rel_path) || exclude.is_match(&dot_rel)
 }
 
 /// Collect matching files
-fn collect_files(
-    base_dir: &Path,
-    include: &GlobSet,
-    exclude: &GlobSet,
-) -> Vec<(PathBuf, PathBuf)> {
+fn collect_files(base_dir: &Path, include: &GlobSet, exclude: &GlobSet) -> Vec<(PathBuf, PathBuf)> {
     let mut results = Vec::new();
 
-    let walker = WalkDir::new(base_dir).into_iter().filter_entry(|e| {
-        if e.file_type().is_dir() {
-            !should_prune_dir(e, base_dir, exclude)
-        } else {
-            true
-        }
-    });
+    let walker = WalkDir::new(base_dir)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            if e.file_type().is_dir() {
+                !should_prune_dir(e, base_dir, exclude)
+            } else {
+                true
+            }
+        });
 
     for entry in walker {
         let entry = match entry {
@@ -125,7 +127,7 @@ fn collect_files(
 
         let file_name = entry.file_name();
 
-        if include.is_match(file_name)
+        if (include.is_match(file_name) || include.is_match(&rel_path))
             && !exclude.is_match(file_name)
             && !exclude.is_match(&rel_path)
         {
@@ -139,7 +141,8 @@ fn collect_files(
 
 /// Output Markdown
 fn output_markdown(files: &[(PathBuf, PathBuf)]) {
-    let mut stdout = io::stdout();
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
 
     for (i, (full_path, rel_path)) in files.iter().enumerate() {
         writeln!(stdout, "### {}", rel_path.display()).ok();
@@ -231,4 +234,3 @@ fn main() {
     let files = collect_files(&base_dir, &include_glob, &exclude_glob);
     output_markdown(&files);
 }
-
