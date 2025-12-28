@@ -15,7 +15,7 @@ A fast command-line tool that concatenates source files from a directory into a 
 ### From source
 
 ```sh
-git clone https://github.com/yourusername/dircat.git
+git clone https://github.com/shishketti/dircat.git
 cd dircat
 cargo build --release
 ```
