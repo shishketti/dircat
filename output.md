@@ -1,3 +1,6 @@
+### src/main.rs
+
+```rust
 use std::env;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
@@ -263,3 +266,4 @@ fn main() {
 
     eprintln!("Output written to '{}'", output_file);
 }
+```
